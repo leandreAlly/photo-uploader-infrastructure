@@ -1,0 +1,11 @@
+template-file-path: templates/bootstrap.yaml
+parameters:
+  ProjectName: photo-uploader
+  GitHubOwner: leandreAlly
+  InfrastructureRepo: photo-uploader-infrastructure
+  GitHubOwnerId: '78492995'
+  CreateOidcProvider: 'false'
+tags:
+  project: photo-uploader
+  layer: bootstrap
+  managed-by: cloudformation-gitsync

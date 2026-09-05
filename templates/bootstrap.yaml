@@ -1,0 +1,168 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ECS CI/CD - bootstrap.
+  The S3 bucket that packaged nested templates are uploaded to, the account's
+  GitHub OIDC provider, and the role this infrastructure repository's workflow
+  assumes to run "aws cloudformation package". Deployed once, before the root
+  stack, because packaging needs a bucket to package into.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: photo-uploader
+    AllowedPattern: '[a-z][a-z0-9-]*'
+
+  GitHubOwner:
+    Type: String
+    Default: leandreAlly
+  InfrastructureRepo:
+    Type: String
+    Default: photo-uploader-infrastructure
+
+  GitHubOwnerId:
+    Type: String
+    Default: '78492995'
+    AllowedPattern: '[0-9]+'
+    Description: >
+      Numeric GitHub owner ID. Repositories created after 2026-07-15 emit an
+      immutable OIDC subject claim of the form
+      repo:owner@ownerid/repo@repoid:ref:... instead of repo:owner/repo:ref:...
+
+  CreateOidcProvider:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: >
+      IAM allows one OIDC provider per URL per account. Set to 'false' only if
+      another stack in this account already creates the GitHub provider.
+
+  TemplateRetentionDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 365
+
+Conditions:
+  ShouldCreateOidcProvider: !Equals [!Ref CreateOidcProvider, 'true']
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: ShouldCreateOidcProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+      Tags:
+        - Key: Name
+          Value: github-actions-oidc
+        - Key: project
+          Value: !Ref ProjectName
+
+  TemplateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-templates-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-old-template-versions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: !Ref TemplateRetentionDays
+          - Id: abort-incomplete-uploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      Tags:
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: layer
+          Value: bootstrap
+        - Key: managed-by
+          Value: cloudformation-gitsync
+
+  TemplateBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref TemplateBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt TemplateBucket.Arn
+              - !Sub '${TemplateBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': false
+
+  GitHubActionsPackageRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: !Sub 'Lets GitHub Actions in ${GitHubOwner}/${InfrastructureRepo} upload packaged nested templates'
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - ShouldCreateOidcProvider
+                - !Ref GitHubOidcProvider
+                - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com'
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub:
+                  - !Sub 'repo:${GitHubOwner}/${InfrastructureRepo}:*'
+                  - !Sub 'repo:${GitHubOwner}@${GitHubOwnerId}/${InfrastructureRepo}@*'
+      Policies:
+        - PolicyName: PackageTemplates
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: WriteTemplateObjects
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                Resource: !Sub '${TemplateBucket.Arn}/*'
+              - Sid: ListTemplateBucket
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt TemplateBucket.Arn
+      Tags:
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
+
+Outputs:
+  TemplateBucketName:
+    Description: Value for the TEMPLATE_BUCKET variable in the packaging workflow
+    Value: !Ref TemplateBucket
+  TemplateBucketArn:
+    Value: !GetAtt TemplateBucket.Arn
+  GitHubActionsPackageRoleArn:
+    Description: Value for the AWS_PACKAGE_ROLE_ARN secret in the infrastructure repository
+    Value: !GetAtt GitHubActionsPackageRole.Arn
