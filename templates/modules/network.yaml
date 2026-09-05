@@ -44,6 +44,12 @@ Parameters:
     Type: String
     Default: 0.0.0.0/0
 
+  DatabasePort:
+    Type: Number
+    Default: 5432
+    MinValue: 1
+    MaxValue: 65535
+
   S3PrefixListId:
     Type: String
     AllowedPattern: '^pl-[0-9a-f]+$'
@@ -214,6 +220,15 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-task-sg'
 
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: PostgreSQL - reachable only from the ECS tasks
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-db-sg'
+
   VpcEndpointSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -262,6 +277,26 @@ Resources:
       ToPort: 443
       DestinationPrefixListId: !Ref S3PrefixListId
       Description: ECR image layers are stored in S3, reached via the gateway endpoint
+
+  DatabaseIngressFromTasks:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref DatabaseSecurityGroup
+      IpProtocol: tcp
+      FromPort: !Ref DatabasePort
+      ToPort: !Ref DatabasePort
+      SourceSecurityGroupId: !Ref TaskSecurityGroup
+      Description: Metadata queries from the application
+
+  TaskEgressToDatabase:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref TaskSecurityGroup
+      IpProtocol: tcp
+      FromPort: !Ref DatabasePort
+      ToPort: !Ref DatabasePort
+      DestinationSecurityGroupId: !Ref DatabaseSecurityGroup
+      Description: PostgreSQL
 
   EndpointIngressFromTasks:
     Type: AWS::EC2::SecurityGroupIngress
@@ -322,6 +357,22 @@ Resources:
       SecurityGroupIds:
         - !Ref VpcEndpointSecurityGroup
 
+  # Without this the execution role cannot fetch the database secret at task
+  # start: these subnets have no NAT gateway, so every AWS API call a task or
+  # its agent makes has to have an endpoint in the VPC.
+  SecretsManagerEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref Vpc
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.secretsmanager'
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VpcEndpointSecurityGroup
+
 Outputs:
   VpcId:
     Value: !Ref Vpc
@@ -339,3 +390,7 @@ Outputs:
     Value: !Ref ContainerPort
   TestListenerPort:
     Value: !Ref TestListenerPort
+  DatabaseSecurityGroupId:
+    Value: !Ref DatabaseSecurityGroup
+  DatabasePort:
+    Value: !Ref DatabasePort
