@@ -62,6 +62,27 @@ Parameters:
     Type: String
     Default: photo-uploader-app
 
+  DbName:
+    Type: String
+    Default: photos
+  DbUsername:
+    Type: String
+    Default: appuser
+  DbInstanceClass:
+    Type: String
+    Default: db.t3.micro
+  DbMultiAz:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+
+  CloudFrontPriceClass:
+    Type: String
+    Default: PriceClass_200
+  ImagePrefix:
+    Type: String
+    Default: images/
+
   ImageTag:
     Type: String
     Default: ''
@@ -123,6 +144,34 @@ Resources:
         - Key: module
           Value: registry
 
+  Storage:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: modules/storage.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        PriceClass: !Ref CloudFrontPriceClass
+        ImagePrefix: !Ref ImagePrefix
+      Tags:
+        - Key: module
+          Value: storage
+
+  Data:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: modules/data.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        PrivateSubnetIds: !GetAtt Network.Outputs.PrivateSubnetIds
+        DatabaseSecurityGroupId: !GetAtt Network.Outputs.DatabaseSecurityGroupId
+        DbName: !Ref DbName
+        DbUsername: !Ref DbUsername
+        DbInstanceClass: !Ref DbInstanceClass
+        MultiAz: !Ref DbMultiAz
+      Tags:
+        - Key: module
+          Value: data
+
   Platform:
     Type: AWS::CloudFormation::Stack
     Condition: HasImage
@@ -143,6 +192,14 @@ Resources:
         MinCapacity: !Ref MinCapacity
         MaxCapacity: !Ref MaxCapacity
         CpuTargetUtilization: !Ref CpuTargetUtilization
+        ImageBucketName: !GetAtt Storage.Outputs.ImageBucketName
+        ImageBucketArn: !GetAtt Storage.Outputs.ImageBucketArn
+        ImagePrefix: !Ref ImagePrefix
+        CloudFrontDomain: !GetAtt Storage.Outputs.DistributionDomainName
+        DbSecretArn: !GetAtt Data.Outputs.DbSecretArn
+        DbEndpoint: !GetAtt Data.Outputs.DbEndpoint
+        DbPort: !GetAtt Data.Outputs.DbPort
+        DbName: !GetAtt Data.Outputs.DbName
       Tags:
         - Key: module
           Value: platform
@@ -231,3 +288,32 @@ Outputs:
   ApplicationRoleArn:
     Description: Value for AWS_ECR_ROLE_ARN in the application repository
     Value: !GetAtt Registry.Outputs.GitHubActionsRoleArn
+  ImageBucketName:
+    Description: Value for IMAGE_BUCKET in the application repository
+    Value: !GetAtt Storage.Outputs.ImageBucketName
+  ImagePrefix:
+    Description: Value for IMAGE_PREFIX in the application repository
+    Value: !GetAtt Storage.Outputs.ImagePrefix
+  CloudFrontDomainName:
+    Description: Value for CDN_DOMAIN in the application repository
+    Value: !GetAtt Storage.Outputs.DistributionDomainName
+  CloudFrontDistributionId:
+    Value: !GetAtt Storage.Outputs.DistributionId
+  DbSecretArn:
+    Description: Value for DB_SECRET_ARN in the application repository
+    Value: !GetAtt Data.Outputs.DbSecretArn
+  DbJdbcUrl:
+    Description: Value for DB_URL in the application repository
+    Value: !Sub
+      - 'jdbc:postgresql://${Host}:${Port}/${Name}'
+      - Host: !GetAtt Data.Outputs.DbEndpoint
+        Port: !GetAtt Data.Outputs.DbPort
+        Name: !GetAtt Data.Outputs.DbName
+  DbEndpoint:
+    Value: !GetAtt Data.Outputs.DbEndpoint
+  DbPort:
+    Description: Value for DB_PORT in the application repository
+    Value: !GetAtt Data.Outputs.DbPort
+  DatabaseName:
+    Description: Value for DB_NAME in the application repository
+    Value: !GetAtt Data.Outputs.DbName
