@@ -58,6 +58,26 @@ Parameters:
     MinValue: 10
     MaxValue: 90
 
+  ImageBucketName:
+    Type: String
+  ImageBucketArn:
+    Type: String
+  ImagePrefix:
+    Type: String
+    Default: images/
+  CloudFrontDomain:
+    Type: String
+
+  DbSecretArn:
+    Type: String
+  DbEndpoint:
+    Type: String
+  DbPort:
+    Type: String
+    Default: '5432'
+  DbName:
+    Type: String
+
   HealthCheckPath:
     Type: String
     Default: /health
@@ -95,6 +115,14 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: ReadDatabaseSecret
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref DbSecretArn
       Tags:
         - Key: project
           Value: !Ref ProjectName
@@ -102,7 +130,7 @@ Resources:
   TaskRole:
     Type: AWS::IAM::Role
     Properties:
-      Description: Identity the application itself runs as - no AWS permissions needed
+      Description: Identity the application runs as - may only write uploads
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -110,6 +138,17 @@ Resources:
             Principal:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
+      Policies:
+        - PolicyName: WriteUploads
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: UploadImagesOnly
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub '${ImageBucketArn}/${ImagePrefix}*'
       Tags:
         - Key: project
           Value: !Ref ProjectName
@@ -135,6 +174,20 @@ Resources:
           PortMappings:
             - ContainerPort: !Ref ContainerPort
               Protocol: tcp
+          Environment:
+            - Name: SPRING_DATASOURCE_URL
+              Value: !Sub 'jdbc:postgresql://${DbEndpoint}:${DbPort}/${DbName}'
+            - Name: APP_IMAGE_BUCKET
+              Value: !Ref ImageBucketName
+            - Name: APP_IMAGE_PREFIX
+              Value: !Ref ImagePrefix
+            - Name: APP_CDN_DOMAIN
+              Value: !Ref CloudFrontDomain
+          Secrets:
+            - Name: SPRING_DATASOURCE_USERNAME
+              ValueFrom: !Sub '${DbSecretArn}:username::'
+            - Name: SPRING_DATASOURCE_PASSWORD
+              ValueFrom: !Sub '${DbSecretArn}:password::'
           LogConfiguration:
             LogDriver: awslogs
             Options:
