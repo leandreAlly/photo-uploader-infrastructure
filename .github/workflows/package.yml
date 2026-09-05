@@ -1,0 +1,65 @@
+name: Package nested templates
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'templates/**'
+      - '.github/workflows/package.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Lint and package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Lint every template
+        run: |
+          set -eo pipefail
+          pip install --quiet cfn-lint
+          cfn-lint templates/bootstrap.yaml templates/modules/*.yaml
+          cfn-lint templates/main.yaml --ignore-checks W3002
+
+      - name: Assume the packaging role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_PACKAGE_ROLE_ARN }}
+          role-session-name: gha-package-${{ github.run_id }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Package the root template
+        run: |
+          set -eo pipefail
+          mkdir -p packaged
+          aws cloudformation package \
+            --template-file templates/main.yaml \
+            --s3-bucket "${{ vars.TEMPLATE_BUCKET }}" \
+            --s3-prefix modules \
+            --output-template-file packaged/main.yaml
+
+      - name: Commit the packaged template
+        run: |
+          set -eo pipefail
+          git add packaged/main.yaml
+
+          if git diff --cached --quiet -- packaged/main.yaml; then
+            echo "Packaged template unchanged - no module templates were modified"
+            exit 0
+          fi
+
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "chore: package nested templates for ${GITHUB_SHA::7}"
+          git push
+          echo "Pushed a new packaged template - GitSync will deploy it"
