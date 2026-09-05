@@ -1,0 +1,153 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Photo Uploader - image storage and delivery.
+  A private S3 bucket that only CloudFront may read, fronted by a distribution
+  using an Origin Access Control. The bucket blocks all public access and its
+  policy names the distribution explicitly, so an object is reachable through
+  the CDN and by nothing else. Created before the platform stack because the
+  application needs the bucket name and the CDN domain as configuration.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: photo-uploader
+    AllowedPattern: '[a-z][a-z0-9-]*'
+
+  PriceClass:
+    Type: String
+    Default: PriceClass_200
+    AllowedValues:
+      - PriceClass_100
+      - PriceClass_200
+      - PriceClass_All
+
+  ImagePrefix:
+    Type: String
+    Default: images/
+    Description: Key prefix the application writes uploads under
+
+  NoncurrentVersionExpiryDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 365
+
+Resources:
+  ImageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-images-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-old-image-versions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: !Ref NoncurrentVersionExpiryDays
+          - Id: abort-incomplete-uploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-images'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: layer
+          Value: storage
+        - Key: managed-by
+          Value: cloudformation-gitsync
+
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${ProjectName}-images-oac'
+        Description: Signs CloudFront requests to the private image bucket
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub '${ProjectName} image delivery'
+        PriceClass: !Ref PriceClass
+        HttpVersion: http2
+        IPV6Enabled: true
+        Origins:
+          - Id: image-bucket
+            DomainName: !GetAtt ImageBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        DefaultCacheBehavior:
+          TargetOriginId: image-bucket
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          # Managed-CachingOptimized
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+      Tags:
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: layer
+          Value: storage
+        - Key: managed-by
+          Value: cloudformation-gitsync
+
+  ImageBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ImageBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt ImageBucket.Arn
+              - !Sub '${ImageBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': false
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${ImageBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                'AWS:SourceArn': !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
+
+Outputs:
+  ImageBucketName:
+    Description: Bucket the application uploads objects to
+    Value: !Ref ImageBucket
+  ImageBucketArn:
+    Value: !GetAtt ImageBucket.Arn
+  ImagePrefix:
+    Value: !Ref ImagePrefix
+  DistributionId:
+    Value: !Ref Distribution
+  DistributionDomainName:
+    Description: Host the application builds image URLs from
+    Value: !GetAtt Distribution.DomainName
