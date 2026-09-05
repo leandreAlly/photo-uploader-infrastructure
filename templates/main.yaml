@@ -1,0 +1,233 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ECS CI/CD - root stack.
+  Nests every module for this project. Child templates are referenced by local
+  path here; "aws cloudformation package" rewrites each TemplateURL to a
+  content-hashed S3 object, so a module only updates when its own template
+  changes. Deploy this stack, never its children.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: photo-uploader
+    AllowedPattern: '[a-z][a-z0-9-]*'
+
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+  PublicSubnet1Cidr:
+    Type: String
+    Default: 10.0.0.0/24
+  PublicSubnet2Cidr:
+    Type: String
+    Default: 10.0.1.0/24
+  PrivateSubnet1Cidr:
+    Type: String
+    Default: 10.0.10.0/24
+  PrivateSubnet2Cidr:
+    Type: String
+    Default: 10.0.11.0/24
+
+  ContainerPort:
+    Type: Number
+    Default: 8080
+  TestListenerPort:
+    Type: Number
+    Default: 9000
+  TestListenerCidr:
+    Type: String
+    Default: 0.0.0.0/0
+
+  S3PrefixListId:
+    Type: String
+    AllowedPattern: '^pl-[0-9a-f]+$'
+
+  GitHubOwner:
+    Type: String
+    Default: leandreAlly
+  ApplicationRepo:
+    Type: String
+    Default: photo-uploader-app
+
+  GitHubOwnerId:
+    Type: String
+    Default: '78492995'
+    AllowedPattern: '[0-9]+'
+    Description: >
+      Numeric GitHub owner ID. Repositories created after 2026-07-15 emit an
+      immutable OIDC subject claim of the form
+      repo:owner@ownerid/repo@repoid:ref:... instead of repo:owner/repo:ref:...
+
+  RepositoryName:
+    Type: String
+    Default: photo-uploader-app
+
+  ImageTag:
+    Type: String
+    Default: ''
+    Description: >
+      Image tag to run. Leave empty on the first deploy - the platform module
+      is only created once an image exists in the registry, because an ECS
+      service cannot start without a real image to pull.
+
+  TaskCpu:
+    Type: String
+    Default: '256'
+  TaskMemory:
+    Type: String
+    Default: '512'
+  MinCapacity:
+    Type: Number
+    Default: 1
+  MaxCapacity:
+    Type: Number
+    Default: 4
+  CpuTargetUtilization:
+    Type: Number
+    Default: 60
+
+Conditions:
+  HasImage: !Not [!Equals [!Ref ImageTag, '']]
+
+Resources:
+  Network:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: modules/network.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        VpcCidr: !Ref VpcCidr
+        PublicSubnet1Cidr: !Ref PublicSubnet1Cidr
+        PublicSubnet2Cidr: !Ref PublicSubnet2Cidr
+        PrivateSubnet1Cidr: !Ref PrivateSubnet1Cidr
+        PrivateSubnet2Cidr: !Ref PrivateSubnet2Cidr
+        ContainerPort: !Ref ContainerPort
+        TestListenerPort: !Ref TestListenerPort
+        TestListenerCidr: !Ref TestListenerCidr
+        S3PrefixListId: !Ref S3PrefixListId
+      Tags:
+        - Key: module
+          Value: network
+
+  Registry:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: modules/registry.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        RepositoryName: !Ref RepositoryName
+        GitHubOwner: !Ref GitHubOwner
+        GitHubOwnerId: !Ref GitHubOwnerId
+        GitHubRepo: !Ref ApplicationRepo
+      Tags:
+        - Key: module
+          Value: registry
+
+  Platform:
+    Type: AWS::CloudFormation::Stack
+    Condition: HasImage
+    Properties:
+      TemplateURL: modules/platform.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        VpcId: !GetAtt Network.Outputs.VpcId
+        PublicSubnetIds: !GetAtt Network.Outputs.PublicSubnetIds
+        PrivateSubnetIds: !GetAtt Network.Outputs.PrivateSubnetIds
+        AlbSecurityGroupId: !GetAtt Network.Outputs.AlbSecurityGroupId
+        TaskSecurityGroupId: !GetAtt Network.Outputs.TaskSecurityGroupId
+        ContainerImage: !Sub '${Registry.Outputs.RepositoryUri}:${ImageTag}'
+        ContainerPort: !Ref ContainerPort
+        TestListenerPort: !Ref TestListenerPort
+        TaskCpu: !Ref TaskCpu
+        TaskMemory: !Ref TaskMemory
+        MinCapacity: !Ref MinCapacity
+        MaxCapacity: !Ref MaxCapacity
+        CpuTargetUtilization: !Ref CpuTargetUtilization
+      Tags:
+        - Key: module
+          Value: platform
+
+  Delivery:
+    Type: AWS::CloudFormation::Stack
+    Condition: HasImage
+    Properties:
+      TemplateURL: modules/delivery.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        EcrRepositoryName: !GetAtt Registry.Outputs.RepositoryName
+        ClusterName: !GetAtt Platform.Outputs.ClusterName
+        ServiceName: !GetAtt Platform.Outputs.ServiceName
+        ProductionListenerArn: !GetAtt Platform.Outputs.ProductionListenerArn
+        TestListenerArn: !GetAtt Platform.Outputs.TestListenerArn
+        BlueTargetGroupName: !GetAtt Platform.Outputs.BlueTargetGroupName
+        GreenTargetGroupName: !GetAtt Platform.Outputs.GreenTargetGroupName
+        ApplicationRoleArn: !GetAtt Registry.Outputs.GitHubActionsRoleArn
+      Tags:
+        - Key: module
+          Value: delivery
+
+Outputs:
+  ArtifactBucketName:
+    Condition: HasImage
+    Description: Value for ARTIFACT_BUCKET in the application repository
+    Value: !GetAtt Delivery.Outputs.ArtifactBucketName
+  PipelineName:
+    Condition: HasImage
+    Value: !GetAtt Delivery.Outputs.PipelineName
+  TaskFamily:
+    Condition: HasImage
+    Description: Value for TASK_FAMILY in the application repository
+    Value: !Ref ProjectName
+  TaskExecutionRoleArn:
+    Condition: HasImage
+    Description: Value for TASK_EXEC_ROLE_ARN in the application repository
+    Value: !GetAtt Platform.Outputs.TaskExecutionRoleArn
+  TaskRoleArn:
+    Condition: HasImage
+    Description: Value for TASK_ROLE_ARN in the application repository
+    Value: !GetAtt Platform.Outputs.TaskRoleArn
+  LogGroupName:
+    Condition: HasImage
+    Description: Value for LOG_GROUP in the application repository
+    Value: !GetAtt Platform.Outputs.LogGroupName
+  ApplicationUrl:
+    Condition: HasImage
+    Description: Public ALB endpoint - the lab deliverable
+    Value: !GetAtt Platform.Outputs.LoadBalancerUrl
+  ClusterName:
+    Condition: HasImage
+    Value: !GetAtt Platform.Outputs.ClusterName
+  ServiceName:
+    Condition: HasImage
+    Value: !GetAtt Platform.Outputs.ServiceName
+  BlueTargetGroupName:
+    Condition: HasImage
+    Value: !GetAtt Platform.Outputs.BlueTargetGroupName
+  GreenTargetGroupName:
+    Condition: HasImage
+    Value: !GetAtt Platform.Outputs.GreenTargetGroupName
+  ProductionListenerArn:
+    Condition: HasImage
+    Value: !GetAtt Platform.Outputs.ProductionListenerArn
+  TestListenerArn:
+    Condition: HasImage
+    Value: !GetAtt Platform.Outputs.TestListenerArn
+  VpcId:
+    Description: VPC created by the network module
+    Value: !GetAtt Network.Outputs.VpcId
+  PrivateSubnetIds:
+    Value: !GetAtt Network.Outputs.PrivateSubnetIds
+  PublicSubnetIds:
+    Value: !GetAtt Network.Outputs.PublicSubnetIds
+  AlbSecurityGroupId:
+    Value: !GetAtt Network.Outputs.AlbSecurityGroupId
+  TaskSecurityGroupId:
+    Value: !GetAtt Network.Outputs.TaskSecurityGroupId
+  RepositoryUri:
+    Description: Image URI the application workflow pushes to
+    Value: !GetAtt Registry.Outputs.RepositoryUri
+  RepositoryName:
+    Value: !GetAtt Registry.Outputs.RepositoryName
+  ApplicationRoleArn:
+    Description: Value for AWS_ECR_ROLE_ARN in the application repository
+    Value: !GetAtt Registry.Outputs.GitHubActionsRoleArn

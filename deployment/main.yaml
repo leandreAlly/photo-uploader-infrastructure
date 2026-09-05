@@ -1,0 +1,12 @@
+template-file-path: packaged/main.yaml
+parameters:
+  ProjectName: photo-uploader
+  S3PrefixListId: pl-c3aa4faa
+  GitHubOwner: leandreAlly
+  ApplicationRepo: photo-uploader-app
+  GitHubOwnerId: '78492995'
+  RepositoryName: photo-uploader-app
+  ImageTag: ''
+tags:
+  project: photo-uploader
+  managed-by: cloudformation-gitsync
