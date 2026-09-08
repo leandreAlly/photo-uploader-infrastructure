@@ -4,7 +4,7 @@ parameters:
   GitHubOwner: leandreAlly
   InfrastructureRepo: photo-uploader-infrastructure
   GitHubOwnerId: '78492995'
-  CreateOidcProvider: 'false'
+  CreateOidcProvider: 'true'
 tags:
   project: photo-uploader
   layer: bootstrap

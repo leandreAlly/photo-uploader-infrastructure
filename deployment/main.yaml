@@ -1,7 +1,7 @@
 template-file-path: packaged/main.yaml
 parameters:
   ProjectName: photo-uploader
-  S3PrefixListId: pl-c3aa4faa
+  S3PrefixListId: pl-63a5400a
   GitHubOwner: leandreAlly
   ApplicationRepo: photo-uploader-app
   GitHubOwnerId: '78492995'
