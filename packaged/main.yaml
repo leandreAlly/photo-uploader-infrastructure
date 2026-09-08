@@ -1,0 +1,503 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "ECS CI/CD - root stack. Nests every module for this project. Child templates\
+  \ are referenced by local path here; \"aws cloudformation package\" rewrites each\
+  \ TemplateURL to a content-hashed S3 object, so a module only updates when its own\
+  \ template changes. Deploy this stack, never its children.\n"
+Parameters:
+  ProjectName:
+    Type: String
+    Default: photo-uploader
+    AllowedPattern: '[a-z][a-z0-9-]*'
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+  PublicSubnet1Cidr:
+    Type: String
+    Default: 10.0.0.0/24
+  PublicSubnet2Cidr:
+    Type: String
+    Default: 10.0.1.0/24
+  PrivateSubnet1Cidr:
+    Type: String
+    Default: 10.0.10.0/24
+  PrivateSubnet2Cidr:
+    Type: String
+    Default: 10.0.11.0/24
+  ContainerPort:
+    Type: Number
+    Default: 8080
+  TestListenerPort:
+    Type: Number
+    Default: 9000
+  TestListenerCidr:
+    Type: String
+    Default: 0.0.0.0/0
+  S3PrefixListId:
+    Type: String
+    AllowedPattern: ^pl-[0-9a-f]+$
+  GitHubOwner:
+    Type: String
+    Default: leandreAlly
+  ApplicationRepo:
+    Type: String
+    Default: photo-uploader-app
+  GitHubOwnerId:
+    Type: String
+    Default: '78492995'
+    AllowedPattern: '[0-9]+'
+    Description: "Numeric GitHub owner ID. Repositories created after 2026-07-15 emit\
+      \ an immutable OIDC subject claim of the form repo:owner@ownerid/repo@repoid:ref:...\
+      \ instead of repo:owner/repo:ref:...\n"
+  RepositoryName:
+    Type: String
+    Default: photo-uploader-app
+  DbName:
+    Type: String
+    Default: photos
+  DbUsername:
+    Type: String
+    Default: appuser
+  DbInstanceClass:
+    Type: String
+    Default: db.t3.micro
+  DbMultiAz:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+    - 'true'
+    - 'false'
+  CloudFrontPriceClass:
+    Type: String
+    Default: PriceClass_200
+  ImagePrefix:
+    Type: String
+    Default: images/
+  ImageTag:
+    Type: String
+    Default: ''
+    Description: "Image tag to run. Leave empty on the first deploy - the platform\
+      \ module is only created once an image exists in the registry, because an ECS\
+      \ service cannot start without a real image to pull.\n"
+  TaskCpu:
+    Type: String
+    Default: '256'
+  TaskMemory:
+    Type: String
+    Default: '512'
+  MinCapacity:
+    Type: Number
+    Default: 1
+  MaxCapacity:
+    Type: Number
+    Default: 4
+  CpuTargetUtilization:
+    Type: Number
+    Default: 60
+Conditions:
+  HasImage:
+    Fn::Not:
+    - Fn::Equals:
+      - Ref: ImageTag
+      - ''
+Resources:
+  Network:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: 
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-149160850943-us-east-1/modules/7194256977a800e29772ca3eb2333bb3.template
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        VpcCidr:
+          Ref: VpcCidr
+        PublicSubnet1Cidr:
+          Ref: PublicSubnet1Cidr
+        PublicSubnet2Cidr:
+          Ref: PublicSubnet2Cidr
+        PrivateSubnet1Cidr:
+          Ref: PrivateSubnet1Cidr
+        PrivateSubnet2Cidr:
+          Ref: PrivateSubnet2Cidr
+        ContainerPort:
+          Ref: ContainerPort
+        TestListenerPort:
+          Ref: TestListenerPort
+        TestListenerCidr:
+          Ref: TestListenerCidr
+        S3PrefixListId:
+          Ref: S3PrefixListId
+      Tags:
+      - Key: module
+        Value: network
+  Registry:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: 
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-149160850943-us-east-1/modules/322245ddb20c25975a03238735cd14de.template
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        RepositoryName:
+          Ref: RepositoryName
+        GitHubOwner:
+          Ref: GitHubOwner
+        GitHubOwnerId:
+          Ref: GitHubOwnerId
+        GitHubRepo:
+          Ref: ApplicationRepo
+      Tags:
+      - Key: module
+        Value: registry
+  Storage:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: 
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-149160850943-us-east-1/modules/c4c2798d17ce460dc9a44af9fb025986.template
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        PriceClass:
+          Ref: CloudFrontPriceClass
+        ImagePrefix:
+          Ref: ImagePrefix
+      Tags:
+      - Key: module
+        Value: storage
+  Data:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: 
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-149160850943-us-east-1/modules/e62ee48f835e47c10c499251b75c14e6.template
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        PrivateSubnetIds:
+          Fn::GetAtt:
+          - Network
+          - Outputs.PrivateSubnetIds
+        DatabaseSecurityGroupId:
+          Fn::GetAtt:
+          - Network
+          - Outputs.DatabaseSecurityGroupId
+        DbName:
+          Ref: DbName
+        DbUsername:
+          Ref: DbUsername
+        DbInstanceClass:
+          Ref: DbInstanceClass
+        MultiAz:
+          Ref: DbMultiAz
+      Tags:
+      - Key: module
+        Value: data
+  Platform:
+    Type: AWS::CloudFormation::Stack
+    Condition: HasImage
+    Properties:
+      TemplateURL: 
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-149160850943-us-east-1/modules/aa5288a60d6edd6033731732dff63ccf.template
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        VpcId:
+          Fn::GetAtt:
+          - Network
+          - Outputs.VpcId
+        PublicSubnetIds:
+          Fn::GetAtt:
+          - Network
+          - Outputs.PublicSubnetIds
+        PrivateSubnetIds:
+          Fn::GetAtt:
+          - Network
+          - Outputs.PrivateSubnetIds
+        AlbSecurityGroupId:
+          Fn::GetAtt:
+          - Network
+          - Outputs.AlbSecurityGroupId
+        TaskSecurityGroupId:
+          Fn::GetAtt:
+          - Network
+          - Outputs.TaskSecurityGroupId
+        ContainerImage:
+          Fn::Sub: ${Registry.Outputs.RepositoryUri}:${ImageTag}
+        ContainerPort:
+          Ref: ContainerPort
+        TestListenerPort:
+          Ref: TestListenerPort
+        TaskCpu:
+          Ref: TaskCpu
+        TaskMemory:
+          Ref: TaskMemory
+        MinCapacity:
+          Ref: MinCapacity
+        MaxCapacity:
+          Ref: MaxCapacity
+        CpuTargetUtilization:
+          Ref: CpuTargetUtilization
+        ImageBucketName:
+          Fn::GetAtt:
+          - Storage
+          - Outputs.ImageBucketName
+        ImageBucketArn:
+          Fn::GetAtt:
+          - Storage
+          - Outputs.ImageBucketArn
+        ImagePrefix:
+          Ref: ImagePrefix
+        CloudFrontDomain:
+          Fn::GetAtt:
+          - Storage
+          - Outputs.DistributionDomainName
+        DbSecretArn:
+          Fn::GetAtt:
+          - Data
+          - Outputs.DbSecretArn
+        DbEndpoint:
+          Fn::GetAtt:
+          - Data
+          - Outputs.DbEndpoint
+        DbPort:
+          Fn::GetAtt:
+          - Data
+          - Outputs.DbPort
+        DbName:
+          Fn::GetAtt:
+          - Data
+          - Outputs.DbName
+      Tags:
+      - Key: module
+        Value: platform
+  Delivery:
+    Type: AWS::CloudFormation::Stack
+    Condition: HasImage
+    Properties:
+      TemplateURL: 
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-149160850943-us-east-1/modules/29aa5944138bcf8cba5add2a4215bf33.template
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        EcrRepositoryName:
+          Fn::GetAtt:
+          - Registry
+          - Outputs.RepositoryName
+        ClusterName:
+          Fn::GetAtt:
+          - Platform
+          - Outputs.ClusterName
+        ServiceName:
+          Fn::GetAtt:
+          - Platform
+          - Outputs.ServiceName
+        ProductionListenerArn:
+          Fn::GetAtt:
+          - Platform
+          - Outputs.ProductionListenerArn
+        TestListenerArn:
+          Fn::GetAtt:
+          - Platform
+          - Outputs.TestListenerArn
+        BlueTargetGroupName:
+          Fn::GetAtt:
+          - Platform
+          - Outputs.BlueTargetGroupName
+        GreenTargetGroupName:
+          Fn::GetAtt:
+          - Platform
+          - Outputs.GreenTargetGroupName
+        ApplicationRoleArn:
+          Fn::GetAtt:
+          - Registry
+          - Outputs.GitHubActionsRoleArn
+      Tags:
+      - Key: module
+        Value: delivery
+Outputs:
+  ArtifactBucketName:
+    Condition: HasImage
+    Description: Value for ARTIFACT_BUCKET in the application repository
+    Value:
+      Fn::GetAtt:
+      - Delivery
+      - Outputs.ArtifactBucketName
+  PipelineName:
+    Condition: HasImage
+    Value:
+      Fn::GetAtt:
+      - Delivery
+      - Outputs.PipelineName
+  TaskFamily:
+    Condition: HasImage
+    Description: Value for TASK_FAMILY in the application repository
+    Value:
+      Ref: ProjectName
+  TaskExecutionRoleArn:
+    Condition: HasImage
+    Description: Value for TASK_EXEC_ROLE_ARN in the application repository
+    Value:
+      Fn::GetAtt:
+      - Platform
+      - Outputs.TaskExecutionRoleArn
+  TaskRoleArn:
+    Condition: HasImage
+    Description: Value for TASK_ROLE_ARN in the application repository
+    Value:
+      Fn::GetAtt:
+      - Platform
+      - Outputs.TaskRoleArn
+  LogGroupName:
+    Condition: HasImage
+    Description: Value for LOG_GROUP in the application repository
+    Value:
+      Fn::GetAtt:
+      - Platform
+      - Outputs.LogGroupName
+  ApplicationUrl:
+    Condition: HasImage
+    Description: Public ALB endpoint - the lab deliverable
+    Value:
+      Fn::GetAtt:
+      - Platform
+      - Outputs.LoadBalancerUrl
+  ClusterName:
+    Condition: HasImage
+    Value:
+      Fn::GetAtt:
+      - Platform
+      - Outputs.ClusterName
+  ServiceName:
+    Condition: HasImage
+    Value:
+      Fn::GetAtt:
+      - Platform
+      - Outputs.ServiceName
+  BlueTargetGroupName:
+    Condition: HasImage
+    Value:
+      Fn::GetAtt:
+      - Platform
+      - Outputs.BlueTargetGroupName
+  GreenTargetGroupName:
+    Condition: HasImage
+    Value:
+      Fn::GetAtt:
+      - Platform
+      - Outputs.GreenTargetGroupName
+  ProductionListenerArn:
+    Condition: HasImage
+    Value:
+      Fn::GetAtt:
+      - Platform
+      - Outputs.ProductionListenerArn
+  TestListenerArn:
+    Condition: HasImage
+    Value:
+      Fn::GetAtt:
+      - Platform
+      - Outputs.TestListenerArn
+  VpcId:
+    Description: VPC created by the network module
+    Value:
+      Fn::GetAtt:
+      - Network
+      - Outputs.VpcId
+  PrivateSubnetIds:
+    Value:
+      Fn::GetAtt:
+      - Network
+      - Outputs.PrivateSubnetIds
+  PublicSubnetIds:
+    Value:
+      Fn::GetAtt:
+      - Network
+      - Outputs.PublicSubnetIds
+  AlbSecurityGroupId:
+    Value:
+      Fn::GetAtt:
+      - Network
+      - Outputs.AlbSecurityGroupId
+  TaskSecurityGroupId:
+    Value:
+      Fn::GetAtt:
+      - Network
+      - Outputs.TaskSecurityGroupId
+  RepositoryUri:
+    Description: Image URI the application workflow pushes to
+    Value:
+      Fn::GetAtt:
+      - Registry
+      - Outputs.RepositoryUri
+  RepositoryName:
+    Value:
+      Fn::GetAtt:
+      - Registry
+      - Outputs.RepositoryName
+  ApplicationRoleArn:
+    Description: Value for AWS_ECR_ROLE_ARN in the application repository
+    Value:
+      Fn::GetAtt:
+      - Registry
+      - Outputs.GitHubActionsRoleArn
+  ImageBucketName:
+    Description: Value for IMAGE_BUCKET in the application repository
+    Value:
+      Fn::GetAtt:
+      - Storage
+      - Outputs.ImageBucketName
+  ImagePrefix:
+    Description: Value for IMAGE_PREFIX in the application repository
+    Value:
+      Fn::GetAtt:
+      - Storage
+      - Outputs.ImagePrefix
+  CloudFrontDomainName:
+    Description: Value for CDN_DOMAIN in the application repository
+    Value:
+      Fn::GetAtt:
+      - Storage
+      - Outputs.DistributionDomainName
+  CloudFrontDistributionId:
+    Value:
+      Fn::GetAtt:
+      - Storage
+      - Outputs.DistributionId
+  DbSecretArn:
+    Description: Value for DB_SECRET_ARN in the application repository
+    Value:
+      Fn::GetAtt:
+      - Data
+      - Outputs.DbSecretArn
+  DbJdbcUrl:
+    Description: Value for DB_URL in the application repository
+    Value:
+      Fn::Sub:
+      - jdbc:postgresql://${Host}:${Port}/${Name}
+      - Host:
+          Fn::GetAtt:
+          - Data
+          - Outputs.DbEndpoint
+        Port:
+          Fn::GetAtt:
+          - Data
+          - Outputs.DbPort
+        Name:
+          Fn::GetAtt:
+          - Data
+          - Outputs.DbName
+  DbEndpoint:
+    Value:
+      Fn::GetAtt:
+      - Data
+      - Outputs.DbEndpoint
+  DbPort:
+    Description: Value for DB_PORT in the application repository
+    Value:
+      Fn::GetAtt:
+      - Data
+      - Outputs.DbPort
+  DatabaseName:
+    Description: Value for DB_NAME in the application repository
+    Value:
+      Fn::GetAtt:
+      - Data
+      - Outputs.DbName
