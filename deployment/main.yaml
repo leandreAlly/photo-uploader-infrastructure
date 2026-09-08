@@ -6,7 +6,7 @@ parameters:
   ApplicationRepo: photo-uploader-app
   GitHubOwnerId: '78492995'
   RepositoryName: photo-uploader-app
-  ImageTag: ''
+  ImageTag: '30bfa61'
 tags:
   project: photo-uploader
   managed-by: cloudformation-gitsync
