@@ -42,7 +42,8 @@ Parameters:
 
   TestListenerCidr:
     Type: String
-    Default: 0.0.0.0/0
+    Default: 127.0.0.1/32
+    Description: CIDR allowed to reach the optional CodeDeploy test listener
 
   DatabasePort:
     Type: Number
@@ -69,6 +70,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-vpc'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
@@ -76,6 +81,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-igw'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -95,6 +104,10 @@ Resources:
           Value: !Sub '${ProjectName}-public-1'
         - Key: Tier
           Value: public
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
@@ -108,6 +121,10 @@ Resources:
           Value: !Sub '${ProjectName}-public-2'
         - Key: Tier
           Value: public
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
@@ -121,6 +138,10 @@ Resources:
           Value: !Sub '${ProjectName}-private-1'
         - Key: Tier
           Value: private
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
@@ -134,6 +155,10 @@ Resources:
           Value: !Sub '${ProjectName}-private-2'
         - Key: Tier
           Value: private
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -142,6 +167,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-public-rt'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   PublicDefaultRoute:
     Type: AWS::EC2::Route
@@ -170,6 +199,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-private-rt-1'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   PrivateRouteTable2:
     Type: AWS::EC2::RouteTable
@@ -178,6 +211,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-private-rt-2'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   PrivateSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -196,6 +233,10 @@ Resources:
     Properties:
       GroupDescription: Public entry point - accepts HTTP from the internet
       VpcId: !Ref Vpc
+      # A local-only rule prevents the implicit allow-all default egress rule.
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 127.0.0.1/32
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
@@ -210,33 +251,58 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-alb-sg'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   TaskSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: ECS Fargate tasks - reachable only from the load balancer
       VpcId: !Ref Vpc
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 127.0.0.1/32
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-task-sg'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   DatabaseSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: PostgreSQL - reachable only from the ECS tasks
       VpcId: !Ref Vpc
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 127.0.0.1/32
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-db-sg'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   VpcEndpointSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Interface VPC endpoints - HTTPS from tasks only
       VpcId: !Ref Vpc
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 127.0.0.1/32
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-endpoint-sg'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   AlbEgressToTasks:
     Type: AWS::EC2::SecurityGroupEgress
@@ -317,6 +383,13 @@ Resources:
       RouteTableIds:
         - !Ref PrivateRouteTable1
         - !Ref PrivateRouteTable2
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-s3-endpoint'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   EcrApiEndpoint:
     Type: AWS::EC2::VPCEndpoint
@@ -330,6 +403,13 @@ Resources:
         - !Ref PrivateSubnet2
       SecurityGroupIds:
         - !Ref VpcEndpointSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-ecr-api-endpoint'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   EcrDkrEndpoint:
     Type: AWS::EC2::VPCEndpoint
@@ -343,6 +423,13 @@ Resources:
         - !Ref PrivateSubnet2
       SecurityGroupIds:
         - !Ref VpcEndpointSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-ecr-dkr-endpoint'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   CloudWatchLogsEndpoint:
     Type: AWS::EC2::VPCEndpoint
@@ -356,6 +443,13 @@ Resources:
         - !Ref PrivateSubnet2
       SecurityGroupIds:
         - !Ref VpcEndpointSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-logs-endpoint'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   # Without this the execution role cannot fetch the database secret at task
   # start: these subnets have no NAT gateway, so every AWS API call a task or
@@ -372,6 +466,13 @@ Resources:
         - !Ref PrivateSubnet2
       SecurityGroupIds:
         - !Ref VpcEndpointSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-secretsmanager-endpoint'
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
 Outputs:
   VpcId:
