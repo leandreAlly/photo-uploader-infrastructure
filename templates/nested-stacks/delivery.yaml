@@ -31,6 +31,18 @@ Parameters:
     Type: String
     Description: OIDC role of the application repository, allowed to upload the config bundle
 
+  TaskExecutionRoleArn:
+    Type: String
+    Description: ECS task execution role that CodePipeline may pass to ECS
+
+  TaskRoleArn:
+    Type: String
+    Description: ECS application task role that CodePipeline may pass to ECS
+
+  DeploymentAlarmName:
+    Type: String
+    Description: CloudWatch alarm that stops a failing blue/green deployment
+
   ConfigObjectKey:
     Type: String
     Default: config/app.zip
@@ -75,6 +87,8 @@ Resources:
           Value: !Ref ProjectName
         - Key: layer
           Value: delivery
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   ArtifactBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -118,6 +132,10 @@ Resources:
       Tags:
         - Key: project
           Value: !Ref ProjectName
+        - Key: layer
+          Value: delivery
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   CodeDeployApplication:
     Type: AWS::CodeDeploy::Application
@@ -146,6 +164,11 @@ Resources:
         Events:
           - DEPLOYMENT_FAILURE
           - DEPLOYMENT_STOP_ON_ALARM
+      AlarmConfiguration:
+        Enabled: true
+        IgnorePollAlarmFailure: false
+        Alarms:
+          - Name: !Ref DeploymentAlarmName
       ECSServices:
         - ClusterName: !Ref ClusterName
           ServiceName: !Ref ServiceName
@@ -208,13 +231,19 @@ Resources:
               - Sid: PassTaskRoles
                 Effect: Allow
                 Action: iam:PassRole
-                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/photo-uploader-*'
+                Resource:
+                  - !Ref TaskExecutionRoleArn
+                  - !Ref TaskRoleArn
                 Condition:
                   StringEquals:
                     iam:PassedToService: ecs-tasks.amazonaws.com
       Tags:
         - Key: project
           Value: !Ref ProjectName
+        - Key: layer
+          Value: delivery
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -261,6 +290,10 @@ Resources:
       Tags:
         - Key: project
           Value: !Ref ProjectName
+        - Key: layer
+          Value: delivery
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   EventBridgeRole:
     Type: AWS::IAM::Role
@@ -284,6 +317,10 @@ Resources:
       Tags:
         - Key: project
           Value: !Ref ProjectName
+        - Key: layer
+          Value: delivery
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   ImagePushRule:
     Type: AWS::Events::Rule
@@ -304,7 +341,7 @@ Resources:
           repository-name:
             - !Ref EcrRepositoryName
           image-tag:
-            - latest
+            - prefix: sha-
       Targets:
         - Id: delivery-pipeline
           Arn: !Sub 'arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}'
