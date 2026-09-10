@@ -31,7 +31,8 @@ Parameters:
     Default: 9000
   TestListenerCidr:
     Type: String
-    Default: 0.0.0.0/0
+    Default: 127.0.0.1/32
+    Description: CIDR allowed to reach the optional CodeDeploy test listener
   S3PrefixListId:
     Type: String
     AllowedPattern: ^pl-[0-9a-f]+$
@@ -62,16 +63,31 @@ Parameters:
     Default: db.t3.micro
   DbMultiAz:
     Type: String
+    Default: 'true'
+    AllowedValues:
+    - 'true'
+    - 'false'
+  DbBackupRetentionDays:
+    Type: Number
+    Default: 7
+    MinValue: 1
+    MaxValue: 35
+    Description: Number of days to retain automated RDS backups
+  DbDeletionProtection:
+    Type: String
     Default: 'false'
     AllowedValues:
     - 'true'
     - 'false'
+    Description: Prevent accidental RDS deletion in non-disposable environments
   CloudFrontPriceClass:
     Type: String
     Default: PriceClass_200
   ImagePrefix:
     Type: String
     Default: images/
+    AllowedPattern: .+/$
+    Description: S3 key prefix for uploaded images; must end with '/'
   ImageTag:
     Type: String
     Default: ''
@@ -104,7 +120,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/7194256977a800e29772ca3eb2333bb3.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/0b390b544c2e4974f2c0fd8c15c911af.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -133,7 +149,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/9c20550edfdb33c520c96d6a27e408af.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/7bbc9a6c3626138b541e826064ca57e6.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -152,7 +168,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/c4c2798d17ce460dc9a44af9fb025986.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/ce2a81f9d03df83353ba45665bbb0d86.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -167,7 +183,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/e62ee48f835e47c10c499251b75c14e6.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/72ab2630cae9be53648284ca60ab5a39.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -187,6 +203,10 @@ Resources:
           Ref: DbInstanceClass
         MultiAz:
           Ref: DbMultiAz
+        BackupRetentionDays:
+          Ref: DbBackupRetentionDays
+        DeletionProtection:
+          Ref: DbDeletionProtection
       Tags:
       - Key: module
         Value: data
@@ -195,7 +215,7 @@ Resources:
     Condition: HasImage
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/aa5288a60d6edd6033731732dff63ccf.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/d7e547458f3c4138238a0606450e42bd.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -221,6 +241,10 @@ Resources:
           - Outputs.TaskSecurityGroupId
         ContainerImage:
           Fn::Sub: ${Registry.Outputs.RepositoryUri}:${ImageTag}
+        ImageRepositoryArn:
+          Fn::GetAtt:
+          - Registry
+          - Outputs.RepositoryArn
         ContainerPort:
           Ref: ContainerPort
         TestListenerPort:
@@ -273,7 +297,7 @@ Resources:
     Condition: HasImage
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/38303c3ad6edcf519568c2d02bc26f86.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/cd4dbf81cc2efa57931148a6f81b0fae.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -309,6 +333,18 @@ Resources:
           Fn::GetAtt:
           - Registry
           - Outputs.GitHubActionsRoleArn
+        TaskExecutionRoleArn:
+          Fn::GetAtt:
+          - Platform
+          - Outputs.TaskExecutionRoleArn
+        TaskRoleArn:
+          Fn::GetAtt:
+          - Platform
+          - Outputs.TaskRoleArn
+        DeploymentAlarmName:
+          Fn::GetAtt:
+          - Platform
+          - Outputs.DeploymentAlarmName
       Tags:
       - Key: module
         Value: delivery
@@ -471,7 +507,7 @@ Outputs:
     Description: Value for DB_URL in the application repository
     Value:
       Fn::Sub:
-      - jdbc:postgresql://${Host}:${Port}/${Name}
+      - jdbc:postgresql://${Host}:${Port}/${Name}?sslmode=require
       - Host:
           Fn::GetAtt:
           - Data
