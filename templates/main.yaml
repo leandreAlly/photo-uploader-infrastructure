@@ -114,7 +114,7 @@ Resources:
   Network:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: modules/network.yaml
+      TemplateURL: nested-stacks/network.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         VpcCidr: !Ref VpcCidr
@@ -133,7 +133,7 @@ Resources:
   Registry:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: modules/registry.yaml
+      TemplateURL: nested-stacks/registry.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         RepositoryName: !Ref RepositoryName
@@ -147,7 +147,7 @@ Resources:
   Storage:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: modules/storage.yaml
+      TemplateURL: nested-stacks/storage.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         PriceClass: !Ref CloudFrontPriceClass
@@ -159,7 +159,7 @@ Resources:
   Data:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: modules/data.yaml
+      TemplateURL: nested-stacks/data.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         PrivateSubnetIds: !GetAtt Network.Outputs.PrivateSubnetIds
@@ -176,7 +176,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Condition: HasImage
     Properties:
-      TemplateURL: modules/platform.yaml
+      TemplateURL: nested-stacks/platform.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt Network.Outputs.VpcId
@@ -208,7 +208,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Condition: HasImage
     Properties:
-      TemplateURL: modules/delivery.yaml
+      TemplateURL: nested-stacks/delivery.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         EcrRepositoryName: !GetAtt Registry.Outputs.RepositoryName
