@@ -1,6 +1,9 @@
 template-file-path: packaged/main.yaml
 parameters:
   ProjectName: photo-uploader
+  DbName: photos
+  DbUsername: appuser
+  DbInstanceClass: db.t3.micro
   S3PrefixListId: pl-63a5400a
   GitHubOwner: leandreAlly
   ApplicationRepo: photo-uploader-app
