@@ -33,51 +33,29 @@ Parameters:
       immutable OIDC subject claim of the form
       repo:owner@ownerid/repo@repoid:ref:... instead of repo:owner/repo:ref:...
 
-  MaxImages:
-    Type: Number
-    Default: 10
-    MinValue: 1
-    MaxValue: 1000
-
-  UntaggedImageExpiryDays:
-    Type: Number
-    Default: 1
-    MinValue: 1
-    MaxValue: 365
-
 Resources:
   EcrRepository:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Ref RepositoryName
-      ImageTagMutability: IMMUTABLE
+      ImageTagMutability: MUTABLE
       EmptyOnDelete: true
       ImageScanningConfiguration:
         ScanOnPush: true
       EncryptionConfiguration:
         EncryptionType: AES256
       LifecyclePolicy:
-        LifecyclePolicyText: !Sub |
+        LifecyclePolicyText: |
           {
             "rules": [
               {
                 "rulePriority": 1,
-                "description": "Expire untagged images after ${UntaggedImageExpiryDays} day(s)",
+                "description": "Expire untagged images after 1 day",
                 "selection": {
                   "tagStatus": "untagged",
                   "countType": "sinceImagePushed",
                   "countUnit": "days",
-                  "countNumber": ${UntaggedImageExpiryDays}
-                },
-                "action": { "type": "expire" }
-              },
-              {
-                "rulePriority": 2,
-                "description": "Keep only the ${MaxImages} most recent images",
-                "selection": {
-                  "tagStatus": "any",
-                  "countType": "imageCountMoreThan",
-                  "countNumber": ${MaxImages}
+                  "countNumber": 1
                 },
                 "action": { "type": "expire" }
               }
