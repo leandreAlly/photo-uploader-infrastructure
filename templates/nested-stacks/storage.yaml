@@ -24,6 +24,7 @@ Parameters:
   ImagePrefix:
     Type: String
     Default: images/
+    AllowedPattern: '.+/$'
     Description: Key prefix the application writes uploads under
 
   NoncurrentVersionExpiryDays:
