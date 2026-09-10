@@ -38,11 +38,9 @@ Resources:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Ref RepositoryName
-      # The lab uses latest as the mutable deployment tag; all other tags remain immutable.
-      ImageTagMutability: IMMUTABLE_WITH_EXCLUSION
-      ImageTagMutabilityExclusionFilters:
-        - ImageTagMutabilityExclusionFilterType: WILDCARD
-          ImageTagMutabilityExclusionFilterValue: latest
+      # The lab uses latest as a rolling deployment tag, so the repository must
+      # allow that tag to be overwritten by each successful application build.
+      ImageTagMutability: MUTABLE
       EmptyOnDelete: true
       ImageScanningConfiguration:
         ScanOnPush: true
