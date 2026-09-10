@@ -7,6 +7,8 @@ parameters:
   GitHubOwnerId: '78492995'
   RepositoryName: photo-uploader-app
   DbMultiAz: 'true'
+  DbBackupRetentionDays: 7
+  DbDeletionProtection: 'false'
   TestListenerCidr: 127.0.0.1/32
   # The application workflow publishes the current image under this tag.
   ImageTag: latest
