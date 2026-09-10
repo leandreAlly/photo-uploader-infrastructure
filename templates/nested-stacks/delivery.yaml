@@ -303,6 +303,8 @@ Resources:
             - SUCCESS
           repository-name:
             - !Ref EcrRepositoryName
+          image-tag:
+            - latest
       Targets:
         - Id: delivery-pipeline
           Arn: !Sub 'arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}'
