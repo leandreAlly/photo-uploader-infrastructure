@@ -47,17 +47,24 @@ Parameters:
 
   MultiAz:
     Type: String
-    Default: 'false'
+    Default: 'true'
     AllowedValues: ['true', 'false']
     Description: >
-      Doubles the instance cost. Off by default for the lab; the subnet group
-      already spans two availability zones, so this is a one-parameter change.
+      Enabled by default for high availability. Set to false only when a lower
+      cost disposable lab deployment is explicitly preferred.
 
   BackupRetentionDays:
     Type: Number
-    Default: 1
-    MinValue: 0
+    Default: 7
+    MinValue: 1
     MaxValue: 35
+    Description: Number of days to retain automated RDS backups
+
+  DeletionProtection:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Prevent accidental RDS deletion in non-disposable environments
 
 Resources:
   DbSecret:
@@ -75,6 +82,8 @@ Resources:
           Value: !Ref ProjectName
         - Key: layer
           Value: data
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   DbSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -84,6 +93,10 @@ Resources:
       Tags:
         - Key: project
           Value: !Ref ProjectName
+        - Key: layer
+          Value: data
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   Database:
     Type: AWS::RDS::DBInstance
@@ -106,7 +119,7 @@ Resources:
       MultiAZ: !Ref MultiAz
       PubliclyAccessible: false
       BackupRetentionPeriod: !Ref BackupRetentionDays
-      DeletionProtection: false
+      DeletionProtection: !Ref DeletionProtection
       AutoMinorVersionUpgrade: true
       CopyTagsToSnapshot: true
       EnableCloudwatchLogsExports:
@@ -129,6 +142,31 @@ Resources:
       SecretId: !Ref DbSecret
       TargetId: !Ref Database
       TargetType: AWS::RDS::DBInstance
+
+  DbFreeStorageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-db-free-storage'
+      AlarmDescription: RDS free storage is below 2 GiB
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref Database
+      Statistic: Minimum
+      Unit: Bytes
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 2147483648
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: notBreaching
+      Tags:
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: layer
+          Value: observability
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
 Outputs:
   DbSecretArn:
