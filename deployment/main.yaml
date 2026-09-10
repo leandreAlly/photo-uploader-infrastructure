@@ -8,8 +8,7 @@ parameters:
   RepositoryName: photo-uploader-app
   DbMultiAz: 'true'
   TestListenerCidr: 127.0.0.1/32
-  # Transitional bootstrap image. After the first sha- tagged image is pushed,
-  # replace this with that full sha- tag and remove the legacy latest tag.
+  # The application workflow publishes the current image under this tag.
   ImageTag: latest
 tags:
   project: photo-uploader

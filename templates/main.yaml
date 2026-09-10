@@ -101,9 +101,8 @@ Parameters:
     Type: String
     Default: ''
     Description: >
-      Image tag to run. Leave empty on the first deploy - the platform module
-      is only created once an image exists in the registry, because an ECS
-      service cannot start without a real image to pull.
+      Image tag to run. The lab deployment uses latest. Leave empty only for
+      the initial bootstrap, before an image exists in the registry.
 
   TaskCpu:
     Type: String
