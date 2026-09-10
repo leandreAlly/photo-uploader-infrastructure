@@ -38,7 +38,11 @@ Resources:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Ref RepositoryName
-      ImageTagMutability: MUTABLE
+      # Keep the existing bootstrap tag usable while making release tags immutable.
+      ImageTagMutability: IMMUTABLE_WITH_EXCLUSION
+      ImageTagMutabilityExclusionFilters:
+        - ImageTagMutabilityExclusionFilterType: WILDCARD
+          ImageTagMutabilityExclusionFilterValue: latest
       EmptyOnDelete: true
       ImageScanningConfiguration:
         ScanOnPush: true
@@ -56,6 +60,17 @@ Resources:
                   "countType": "sinceImagePushed",
                   "countUnit": "days",
                   "countNumber": 1
+                },
+                "action": { "type": "expire" }
+              },
+              {
+                "rulePriority": 2,
+                "description": "Keep the ten most recent release images",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": ["sha-"],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
                 },
                 "action": { "type": "expire" }
               }
@@ -88,8 +103,8 @@ Resources:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
               StringLike:
                 token.actions.githubusercontent.com:sub:
-                  - !Sub 'repo:${GitHubOwner}/${GitHubRepo}:*'
-                  - !Sub 'repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepo}@*'
+                  - !Sub 'repo:${GitHubOwner}/${GitHubRepo}:ref:refs/heads/main'
+                  - !Sub 'repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepo}@*:ref:refs/heads/main'
       Policies:
         - PolicyName: EcrPush
           PolicyDocument:
@@ -107,9 +122,6 @@ Resources:
                   - ecr:UploadLayerPart
                   - ecr:CompleteLayerUpload
                   - ecr:PutImage
-                  - ecr:BatchGetImage
-                  - ecr:GetDownloadUrlForLayer
-                  - ecr:DescribeImages
                 Resource: !Sub 'arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${RepositoryName}'
       Tags:
         - Key: project
