@@ -91,9 +91,8 @@ Parameters:
   ImageTag:
     Type: String
     Default: ''
-    Description: "Image tag to run. Leave empty on the first deploy - the platform\
-      \ module is only created once an image exists in the registry, because an ECS\
-      \ service cannot start without a real image to pull.\n"
+    Description: "Image tag to run. The lab deployment uses latest. Leave empty only\
+      \ for the initial bootstrap, before an image exists in the registry.\n"
   TaskCpu:
     Type: String
     Default: '256'
@@ -149,7 +148,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/7bbc9a6c3626138b541e826064ca57e6.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/dcad662b30a58b1d671c996e7cb2a6fc.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -297,7 +296,7 @@ Resources:
     Condition: HasImage
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/cd4dbf81cc2efa57931148a6f81b0fae.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/f9b6d9218ef8985d29b394ecb150df58.template
       Parameters:
         ProjectName:
           Ref: ProjectName
