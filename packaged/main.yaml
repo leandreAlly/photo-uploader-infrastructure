@@ -148,7 +148,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/dcad662b30a58b1d671c996e7cb2a6fc.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/262ecd75221f351d0ef4a62eb27013aa.template
       Parameters:
         ProjectName:
           Ref: ProjectName
