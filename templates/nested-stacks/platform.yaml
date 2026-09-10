@@ -25,6 +25,9 @@ Parameters:
 
   ContainerImage:
     Type: String
+  ImageRepositoryArn:
+    Type: String
+    Description: ECR repository containing the image used by the service
   ContainerPort:
     Type: Number
     Default: 8080
@@ -65,6 +68,7 @@ Parameters:
   ImagePrefix:
     Type: String
     Default: images/
+    AllowedPattern: '.+/$'
   CloudFrontDomain:
     Type: String
 
@@ -91,6 +95,13 @@ Resources:
     Properties:
       LogGroupName: !Sub '/ecs/${ProjectName}'
       RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: layer
+          Value: observability
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   Cluster:
     Type: AWS::ECS::Cluster
@@ -101,6 +112,10 @@ Resources:
       Tags:
         - Key: project
           Value: !Ref ProjectName
+        - Key: layer
+          Value: platform
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   TaskExecutionRole:
     Type: AWS::IAM::Role
@@ -113,19 +128,39 @@ Resources:
             Principal:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       Policies:
-        - PolicyName: ReadDatabaseSecret
+        - PolicyName: PullImageWriteLogsReadSecret
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - Effect: Allow
+              - Sid: EcrAuth
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Sid: PullProjectImage
+                Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: !Ref ImageRepositoryArn
+              - Sid: WriteApplicationLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub '${LogGroup.Arn}:*'
+              - Sid: ReadDatabaseSecret
+                Effect: Allow
                 Action: secretsmanager:GetSecretValue
                 Resource: !Ref DbSecretArn
       Tags:
         - Key: project
           Value: !Ref ProjectName
+        - Key: layer
+          Value: platform
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   TaskRole:
     Type: AWS::IAM::Role
@@ -152,6 +187,10 @@ Resources:
       Tags:
         - Key: project
           Value: !Ref ProjectName
+        - Key: layer
+          Value: platform
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -174,9 +213,18 @@ Resources:
           PortMappings:
             - ContainerPort: !Ref ContainerPort
               Protocol: tcp
+          StopTimeout: 30
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1
+            Interval: 30
+            Timeout: 3
+            Retries: 3
+            StartPeriod: 40
           Environment:
             - Name: SPRING_DATASOURCE_URL
-              Value: !Sub 'jdbc:postgresql://${DbEndpoint}:${DbPort}/${DbName}'
+              Value: !Sub 'jdbc:postgresql://${DbEndpoint}:${DbPort}/${DbName}?sslmode=require'
             - Name: APP_IMAGE_BUCKET
               Value: !Ref ImageBucketName
             - Name: APP_IMAGE_PREFIX
@@ -197,6 +245,10 @@ Resources:
       Tags:
         - Key: project
           Value: !Ref ProjectName
+        - Key: layer
+          Value: platform
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -215,6 +267,10 @@ Resources:
       Tags:
         - Key: project
           Value: !Ref ProjectName
+        - Key: layer
+          Value: platform
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   BlueTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -237,6 +293,10 @@ Resources:
       Tags:
         - Key: colour
           Value: blue
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   GreenTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -259,6 +319,10 @@ Resources:
       Tags:
         - Key: colour
           Value: green
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   ProductionListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -307,6 +371,10 @@ Resources:
       Tags:
         - Key: project
           Value: !Ref ProjectName
+        - Key: layer
+          Value: platform
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
   ScalableTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
@@ -329,6 +397,30 @@ Resources:
         TargetValue: !Ref CpuTargetUtilization
         ScaleInCooldown: 300
         ScaleOutCooldown: 60
+
+  Alb5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-alb-5xx'
+      AlarmDescription: Rolls back a deployment after sustained ALB errors
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_ELB_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Tags:
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: layer
+          Value: observability
+        - Key: managed-by
+          Value: cloudformation-gitsync
 
 Outputs:
   LoadBalancerUrl:
@@ -356,3 +448,6 @@ Outputs:
     Value: !Ref TestListener
   LogGroupName:
     Value: !Ref LogGroup
+  DeploymentAlarmName:
+    Description: CloudWatch alarm CodeDeploy monitors during blue/green deployments
+    Value: !Ref Alb5xxAlarm
