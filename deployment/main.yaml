@@ -11,6 +11,11 @@ parameters:
   DbDeletionProtection: 'false'
   TestListenerCidr: 127.0.0.1/32
   CloudFrontPriceClass: PriceClass_200
+  TaskCpu: '256'
+  TaskMemory: '512'
+  MinCapacity: 1
+  MaxCapacity: 4
+  CpuTargetUtilization: 60
   # The application workflow publishes the current image under this tag.
   ImageTag: latest
 tags:
