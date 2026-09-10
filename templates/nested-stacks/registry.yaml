@@ -38,7 +38,7 @@ Resources:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Ref RepositoryName
-      # Keep the existing bootstrap tag usable while making release tags immutable.
+      # The lab uses latest as the mutable deployment tag; all other tags remain immutable.
       ImageTagMutability: IMMUTABLE_WITH_EXCLUSION
       ImageTagMutabilityExclusionFilters:
         - ImageTagMutabilityExclusionFilterType: WILDCARD
@@ -60,17 +60,6 @@ Resources:
                   "countType": "sinceImagePushed",
                   "countUnit": "days",
                   "countNumber": 1
-                },
-                "action": { "type": "expire" }
-              },
-              {
-                "rulePriority": 2,
-                "description": "Keep the ten most recent release images",
-                "selection": {
-                  "tagStatus": "tagged",
-                  "tagPrefixList": ["sha-"],
-                  "countType": "imageCountMoreThan",
-                  "countNumber": 10
                 },
                 "action": { "type": "expire" }
               }
