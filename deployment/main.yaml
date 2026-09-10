@@ -10,6 +10,7 @@ parameters:
   DbBackupRetentionDays: 7
   DbDeletionProtection: 'false'
   TestListenerCidr: 127.0.0.1/32
+  CloudFrontPriceClass: PriceClass_200
   # The application workflow publishes the current image under this tag.
   ImageTag: latest
 tags:
