@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
   ECS CI/CD - delivery pipeline.
-  An EventBridge rule watching for successful image pushes to the project's ECR
+  An EventBridge rule watching for successful latest image pushes to the project's ECR
   repository starts a CodePipeline, which hands the task definition and appspec
   to CodeDeploy for a blue/green deployment onto the existing ECS service.
 
@@ -341,7 +341,7 @@ Resources:
           repository-name:
             - !Ref EcrRepositoryName
           image-tag:
-            - prefix: sha-
+            - latest
       Targets:
         - Id: delivery-pipeline
           Arn: !Sub 'arn:${AWS::Partition}:codepipeline:${AWS::Region}:${AWS::AccountId}:${Pipeline}'
