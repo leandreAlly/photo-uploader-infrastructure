@@ -36,7 +36,8 @@ Parameters:
     Default: 9000
   TestListenerCidr:
     Type: String
-    Default: 0.0.0.0/0
+    Default: 127.0.0.1/32
+    Description: CIDR allowed to reach the optional CodeDeploy test listener
 
   S3PrefixListId:
     Type: String
@@ -73,8 +74,19 @@ Parameters:
     Default: db.t3.micro
   DbMultiAz:
     Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+  DbBackupRetentionDays:
+    Type: Number
+    Default: 7
+    MinValue: 1
+    MaxValue: 35
+    Description: Number of days to retain automated RDS backups
+  DbDeletionProtection:
+    Type: String
     Default: 'false'
     AllowedValues: ['true', 'false']
+    Description: Prevent accidental RDS deletion in non-disposable environments
 
   CloudFrontPriceClass:
     Type: String
@@ -82,6 +94,8 @@ Parameters:
   ImagePrefix:
     Type: String
     Default: images/
+    AllowedPattern: '.+/$'
+    Description: S3 key prefix for uploaded images; must end with '/'
 
   ImageTag:
     Type: String
@@ -168,6 +182,8 @@ Resources:
         DbUsername: !Ref DbUsername
         DbInstanceClass: !Ref DbInstanceClass
         MultiAz: !Ref DbMultiAz
+        BackupRetentionDays: !Ref DbBackupRetentionDays
+        DeletionProtection: !Ref DbDeletionProtection
       Tags:
         - Key: module
           Value: data
@@ -185,6 +201,7 @@ Resources:
         AlbSecurityGroupId: !GetAtt Network.Outputs.AlbSecurityGroupId
         TaskSecurityGroupId: !GetAtt Network.Outputs.TaskSecurityGroupId
         ContainerImage: !Sub '${Registry.Outputs.RepositoryUri}:${ImageTag}'
+        ImageRepositoryArn: !GetAtt Registry.Outputs.RepositoryArn
         ContainerPort: !Ref ContainerPort
         TestListenerPort: !Ref TestListenerPort
         TaskCpu: !Ref TaskCpu
@@ -219,6 +236,9 @@ Resources:
         BlueTargetGroupName: !GetAtt Platform.Outputs.BlueTargetGroupName
         GreenTargetGroupName: !GetAtt Platform.Outputs.GreenTargetGroupName
         ApplicationRoleArn: !GetAtt Registry.Outputs.GitHubActionsRoleArn
+        TaskExecutionRoleArn: !GetAtt Platform.Outputs.TaskExecutionRoleArn
+        TaskRoleArn: !GetAtt Platform.Outputs.TaskRoleArn
+        DeploymentAlarmName: !GetAtt Platform.Outputs.DeploymentAlarmName
       Tags:
         - Key: module
           Value: delivery
@@ -305,7 +325,7 @@ Outputs:
   DbJdbcUrl:
     Description: Value for DB_URL in the application repository
     Value: !Sub
-      - 'jdbc:postgresql://${Host}:${Port}/${Name}'
+      - 'jdbc:postgresql://${Host}:${Port}/${Name}?sslmode=require'
       - Host: !GetAtt Data.Outputs.DbEndpoint
         Port: !GetAtt Data.Outputs.DbPort
         Name: !GetAtt Data.Outputs.DbName
