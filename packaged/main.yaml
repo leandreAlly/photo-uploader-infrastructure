@@ -104,7 +104,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/modules/7194256977a800e29772ca3eb2333bb3.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/7194256977a800e29772ca3eb2333bb3.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -133,7 +133,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/modules/322245ddb20c25975a03238735cd14de.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/9c20550edfdb33c520c96d6a27e408af.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -152,7 +152,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/modules/c4c2798d17ce460dc9a44af9fb025986.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/c4c2798d17ce460dc9a44af9fb025986.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -167,7 +167,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/modules/e62ee48f835e47c10c499251b75c14e6.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/e62ee48f835e47c10c499251b75c14e6.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -195,7 +195,7 @@ Resources:
     Condition: HasImage
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/modules/aa5288a60d6edd6033731732dff63ccf.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/aa5288a60d6edd6033731732dff63ccf.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -273,7 +273,7 @@ Resources:
     Condition: HasImage
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/modules/29aa5944138bcf8cba5add2a4215bf33.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/38303c3ad6edcf519568c2d02bc26f86.template
       Parameters:
         ProjectName:
           Ref: ProjectName
