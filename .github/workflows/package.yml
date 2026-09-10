@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'templates/**'
+      - 'deployment/main.yaml'
       - '.github/workflows/package.yml'
   workflow_dispatch:
 
@@ -43,6 +44,22 @@ jobs:
             --s3-bucket "${{ vars.TEMPLATE_BUCKET }}" \
             --s3-prefix nested-stacks \
             --output-template-file packaged/main.yaml
+
+      - name: Validate the packaged deployment contract
+        run: |
+          cfn-lint packaged/main.yaml --ignore-checks W3002
+          ruby <<'RUBY'
+          require "yaml"
+
+          deployment = YAML.load_file("deployment/main.yaml")
+          packaged = YAML.load_file("packaged/main.yaml")
+          configured = deployment.fetch("parameters", {}).keys
+          available = packaged.fetch("Parameters", {}).keys
+          missing = configured - available
+
+          abort("deployment parameters missing from packaged template: #{missing.join(', ')}") unless missing.empty?
+          puts "Deployment parameter contract OK"
+          RUBY
 
       - name: Commit the packaged template
         run: |
