@@ -93,6 +93,9 @@ Parameters:
     Default: ''
     Description: "Bootstrap image tag for the initial ECS task definition. CodeDeploy\
       \ owns later application image revisions published by the app workflow.\n"
+  ServiceTaskDefinitionArn:
+    Type: String
+    Description: Existing ECS task definition revision owned by CloudFormation
   TaskCpu:
     Type: String
     Default: '256'
@@ -214,7 +217,7 @@ Resources:
     Condition: HasImage
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/d7e547458f3c4138238a0606450e42bd.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/028abb87f2340ab48ba219d52a087801.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -244,6 +247,8 @@ Resources:
           Fn::GetAtt:
           - Registry
           - Outputs.RepositoryArn
+        ServiceTaskDefinitionArn:
+          Ref: ServiceTaskDefinitionArn
         ContainerPort:
           Ref: ContainerPort
         TestListenerPort:
@@ -506,7 +511,7 @@ Outputs:
     Description: Value for DB_URL in the application repository
     Value:
       Fn::Sub:
-      - jdbc:postgresql://${Host}:${Port}/${Name}?sslmode=require
+      - jdbc:postgresql://${Host}:${Port}/${Name}
       - Host:
           Fn::GetAtt:
           - Data
