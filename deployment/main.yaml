@@ -26,6 +26,8 @@ parameters:
   # This revision remains owned by the bootstrap stack; do not replace it with
   # a CodeDeploy-created task definition revision.
   ServiceTaskDefinitionArn: arn:aws:ecs:us-east-1:842676015206:task-definition/photo-uploader:1
+  # This revision also retriggers GitSync after the execution-role permission
+  # batch was validated with the IAM policy simulator.
 tags:
   project: photo-uploader
   managed-by: cloudformation-gitsync
