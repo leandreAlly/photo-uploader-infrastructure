@@ -28,6 +28,10 @@ Parameters:
   ImageRepositoryArn:
     Type: String
     Description: ECR repository containing the image used by the service
+  ServiceTaskDefinitionArn:
+    Type: String
+    Default: ''
+    Description: Active task definition revision currently owned by CodeDeploy
   ContainerPort:
     Type: Number
     Default: 8080
@@ -88,6 +92,9 @@ Parameters:
   LogRetentionDays:
     Type: Number
     Default: 7
+
+Conditions:
+  HasServiceTaskDefinition: !Not [!Equals [!Ref ServiceTaskDefinitionArn, '']]
 
 Resources:
   LogGroup:
@@ -351,7 +358,7 @@ Resources:
       - TestListener
     Properties:
       Cluster: !Ref Cluster
-      TaskDefinition: !Ref TaskDefinition
+      TaskDefinition: !If [HasServiceTaskDefinition, !Ref ServiceTaskDefinitionArn, !Ref TaskDefinition]
       LaunchType: FARGATE
       PlatformVersion: LATEST
       DesiredCount: !Ref DesiredCount

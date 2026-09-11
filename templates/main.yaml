@@ -104,6 +104,14 @@ Parameters:
       Image tag to run. The lab deployment uses latest. Leave empty only for
       the initial bootstrap, before an image exists in the registry.
 
+  ServiceTaskDefinitionArn:
+    Type: String
+    Default: ''
+    Description: >
+      Active ECS task definition revision owned by CodeDeploy. Set this after
+      the initial service creation so CloudFormation does not update the
+      CODE_DEPLOY-controlled service task definition.
+
   TaskCpu:
     Type: String
     Default: '256'
@@ -201,6 +209,7 @@ Resources:
         TaskSecurityGroupId: !GetAtt Network.Outputs.TaskSecurityGroupId
         ContainerImage: !Sub '${Registry.Outputs.RepositoryUri}:${ImageTag}'
         ImageRepositoryArn: !GetAtt Registry.Outputs.RepositoryArn
+        ServiceTaskDefinitionArn: !Ref ServiceTaskDefinitionArn
         ContainerPort: !Ref ContainerPort
         TestListenerPort: !Ref TestListenerPort
         TaskCpu: !Ref TaskCpu
