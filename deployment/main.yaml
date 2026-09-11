@@ -20,10 +20,9 @@ parameters:
   MaxCapacity: 4
   CpuTargetUtilization: 60
   ImagePrefix: images/
-  # The application workflow publishes the current image under this tag.
-  ImageTag: latest
-  # CodeDeploy owns future service task-definition revisions.
-  ServiceTaskDefinitionArn: arn:aws:ecs:us-east-1:842676015206:task-definition/photo-uploader:5
+  # Keep the CloudFormation bootstrap task definition stable; CodeDeploy deploys
+  # each later image produced by the application workflow under latest.
+  ImageTag: 30bfa61
 tags:
   project: photo-uploader
   managed-by: cloudformation-gitsync
