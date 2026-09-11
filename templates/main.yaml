@@ -104,6 +104,10 @@ Parameters:
       Bootstrap image tag for the initial ECS task definition. CodeDeploy owns
       later application image revisions published by the app workflow.
 
+  ServiceTaskDefinitionArn:
+    Type: String
+    Description: Existing ECS task definition revision owned by CloudFormation
+
   TaskCpu:
     Type: String
     Default: '256'
@@ -201,6 +205,7 @@ Resources:
         TaskSecurityGroupId: !GetAtt Network.Outputs.TaskSecurityGroupId
         ContainerImage: !Sub '${Registry.Outputs.RepositoryUri}:${ImageTag}'
         ImageRepositoryArn: !GetAtt Registry.Outputs.RepositoryArn
+        ServiceTaskDefinitionArn: !Ref ServiceTaskDefinitionArn
         ContainerPort: !Ref ContainerPort
         TestListenerPort: !Ref TestListenerPort
         TaskCpu: !Ref TaskCpu
@@ -324,7 +329,7 @@ Outputs:
   DbJdbcUrl:
     Description: Value for DB_URL in the application repository
     Value: !Sub
-      - 'jdbc:postgresql://${Host}:${Port}/${Name}?sslmode=require'
+      - 'jdbc:postgresql://${Host}:${Port}/${Name}'
       - Host: !GetAtt Data.Outputs.DbEndpoint
         Port: !GetAtt Data.Outputs.DbPort
         Name: !GetAtt Data.Outputs.DbName

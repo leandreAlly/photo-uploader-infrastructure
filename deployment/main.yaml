@@ -23,6 +23,7 @@ parameters:
   # Keep the CloudFormation bootstrap task definition stable; CodeDeploy deploys
   # each later image produced by the application workflow under latest.
   ImageTag: 30bfa61
+  ServiceTaskDefinitionArn: arn:aws:ecs:us-east-1:842676015206:task-definition/photo-uploader:1
 tags:
   project: photo-uploader
   managed-by: cloudformation-gitsync

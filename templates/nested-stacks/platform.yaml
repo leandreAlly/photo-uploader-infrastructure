@@ -28,6 +28,9 @@ Parameters:
   ImageRepositoryArn:
     Type: String
     Description: ECR repository containing the image used by the service
+  ServiceTaskDefinitionArn:
+    Type: String
+    Description: ECS task definition revision managed by CloudFormation bootstrap
   ContainerPort:
     Type: Number
     Default: 8080
@@ -213,18 +216,9 @@ Resources:
           PortMappings:
             - ContainerPort: !Ref ContainerPort
               Protocol: tcp
-          StopTimeout: 30
-          HealthCheck:
-            Command:
-              - CMD-SHELL
-              - wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1
-            Interval: 30
-            Timeout: 3
-            Retries: 3
-            StartPeriod: 40
           Environment:
             - Name: SPRING_DATASOURCE_URL
-              Value: !Sub 'jdbc:postgresql://${DbEndpoint}:${DbPort}/${DbName}?sslmode=require'
+              Value: !Sub 'jdbc:postgresql://${DbEndpoint}:${DbPort}/${DbName}'
             - Name: APP_IMAGE_BUCKET
               Value: !Ref ImageBucketName
             - Name: APP_IMAGE_PREFIX
@@ -351,7 +345,7 @@ Resources:
       - TestListener
     Properties:
       Cluster: !Ref Cluster
-      TaskDefinition: !Ref TaskDefinition
+      TaskDefinition: !Ref ServiceTaskDefinitionArn
       LaunchType: FARGATE
       PlatformVersion: LATEST
       DesiredCount: !Ref DesiredCount
