@@ -93,6 +93,12 @@ Parameters:
     Default: ''
     Description: "Image tag to run. The lab deployment uses latest. Leave empty only\
       \ for the initial bootstrap, before an image exists in the registry.\n"
+  ServiceTaskDefinitionArn:
+    Type: String
+    Default: ''
+    Description: "Active ECS task definition revision owned by CodeDeploy. Set this\
+      \ after the initial service creation so CloudFormation does not update the CODE_DEPLOY-controlled\
+      \ service task definition.\n"
   TaskCpu:
     Type: String
     Default: '256'
@@ -214,7 +220,7 @@ Resources:
     Condition: HasImage
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/d7e547458f3c4138238a0606450e42bd.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/4300c976b0104cc6cf2aec1c9f7b1cd7.template
       Parameters:
         ProjectName:
           Ref: ProjectName
@@ -244,6 +250,8 @@ Resources:
           Fn::GetAtt:
           - Registry
           - Outputs.RepositoryArn
+        ServiceTaskDefinitionArn:
+          Ref: ServiceTaskDefinitionArn
         ContainerPort:
           Ref: ContainerPort
         TestListenerPort:
