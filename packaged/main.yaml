@@ -95,7 +95,9 @@ Parameters:
       \ owns later application image revisions published by the app workflow.\n"
   ServiceTaskDefinitionArn:
     Type: String
-    Description: Existing ECS task definition revision owned by CloudFormation
+    Default: ''
+    Description: "Existing ECS task definition revision the service should keep running.\
+      \ Empty on the first create; set once the platform stack exists.\n"
   TaskCpu:
     Type: String
     Default: '256'
@@ -217,7 +219,7 @@ Resources:
     Condition: HasImage
     Properties:
       TemplateURL: 
-        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/028abb87f2340ab48ba219d52a087801.template
+        https://s3.us-east-1.amazonaws.com/photo-uploader-templates-842676015206-us-east-1/nested-stacks/85cbe4379a2d875eb1a20fa0f996c777.template
       Parameters:
         ProjectName:
           Ref: ProjectName
