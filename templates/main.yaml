@@ -27,6 +27,12 @@ Parameters:
   PrivateSubnet2Cidr:
     Type: String
     Default: 10.0.11.0/24
+  DatabaseSubnet1Cidr:
+    Type: String
+    Default: 10.0.20.0/24
+  DatabaseSubnet2Cidr:
+    Type: String
+    Default: 10.0.21.0/24
 
   ContainerPort:
     Type: Number
@@ -142,6 +148,8 @@ Resources:
         PublicSubnet2Cidr: !Ref PublicSubnet2Cidr
         PrivateSubnet1Cidr: !Ref PrivateSubnet1Cidr
         PrivateSubnet2Cidr: !Ref PrivateSubnet2Cidr
+        DatabaseSubnet1Cidr: !Ref DatabaseSubnet1Cidr
+        DatabaseSubnet2Cidr: !Ref DatabaseSubnet2Cidr
         ContainerPort: !Ref ContainerPort
         TestListenerPort: !Ref TestListenerPort
         TestListenerCidr: !Ref TestListenerCidr
@@ -182,7 +190,7 @@ Resources:
       TemplateURL: nested-stacks/data.yaml
       Parameters:
         ProjectName: !Ref ProjectName
-        PrivateSubnetIds: !GetAtt Network.Outputs.PrivateSubnetIds
+        DatabaseSubnetIds: !GetAtt Network.Outputs.DatabaseSubnetIds
         DatabaseSecurityGroupId: !GetAtt Network.Outputs.DatabaseSecurityGroupId
         DbName: !Ref DbName
         DbUsername: !Ref DbUsername
@@ -301,6 +309,8 @@ Outputs:
     Value: !GetAtt Network.Outputs.VpcId
   PrivateSubnetIds:
     Value: !GetAtt Network.Outputs.PrivateSubnetIds
+  DatabaseSubnetIds:
+    Value: !GetAtt Network.Outputs.DatabaseSubnetIds
   PublicSubnetIds:
     Value: !GetAtt Network.Outputs.PublicSubnetIds
   AlbSecurityGroupId:

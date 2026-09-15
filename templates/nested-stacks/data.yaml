@@ -12,8 +12,9 @@ Parameters:
     Default: photo-uploader
     AllowedPattern: '[a-z][a-z0-9-]*'
 
-  PrivateSubnetIds:
+  DatabaseSubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets of the dedicated database tier, one per Availability Zone
   DatabaseSecurityGroupId:
     Type: AWS::EC2::SecurityGroup::Id
 
@@ -89,7 +90,7 @@ Resources:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
       DBSubnetGroupDescription: !Sub '${ProjectName} private subnets'
-      SubnetIds: !Ref PrivateSubnetIds
+      SubnetIds: !Ref DatabaseSubnetIds
       Tags:
         - Key: project
           Value: !Ref ProjectName
