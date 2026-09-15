@@ -38,8 +38,6 @@ Resources:
     Type: AWS::ECR::Repository
     Properties:
       RepositoryName: !Ref RepositoryName
-      # The lab uses latest as a rolling deployment tag, so the repository must
-      # allow that tag to be overwritten by each successful application build.
       ImageTagMutability: MUTABLE
       EmptyOnDelete: true
       ImageScanningConfiguration:

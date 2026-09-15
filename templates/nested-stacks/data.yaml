@@ -134,8 +134,6 @@ Resources:
         - Key: managed-by
           Value: cloudformation-gitsync
 
-  # Writes host, port, dbname and engine back into the secret, so the
-  # application reads one JSON document instead of stitching values together.
   DbSecretAttachment:
     Type: AWS::SecretsManager::SecretTargetAttachment
     Properties:

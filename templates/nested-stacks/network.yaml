@@ -54,11 +54,7 @@ Parameters:
   S3PrefixListId:
     Type: String
     AllowedPattern: '^pl-[0-9a-f]+$'
-    Description: >
-      Managed prefix list for S3 in this region. Find it with:
-      aws ec2 describe-managed-prefix-lists --region <region>
-      --filters Name=prefix-list-name,Values=com.amazonaws.<region>.s3
-      --query 'PrefixLists[0].PrefixListId' --output text
+    Description: Managed prefix list for S3 in this region. 
 
 Resources:
   Vpc:
@@ -233,9 +229,8 @@ Resources:
     Properties:
       GroupDescription: Public entry point - accepts HTTP from the internet
       VpcId: !Ref Vpc
-      # A local-only rule prevents the implicit allow-all default egress rule.
       SecurityGroupEgress:
-        - IpProtocol: '-1'
+        - IpProtocol: '-1' 
           CidrIp: 127.0.0.1/32
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -321,7 +316,7 @@ Resources:
       IpProtocol: tcp
       FromPort: !Ref ContainerPort
       ToPort: !Ref ContainerPort
-      SourceSecurityGroupId: !Ref AlbSecurityGroup
+      SourceSecurityGroupId: !Ref AlbSecurityGroup # only network interfaces using the ALB SG may send this traffic.
       Description: Application traffic and health checks from the ALB
 
   TaskEgressToEndpoints:
@@ -334,7 +329,7 @@ Resources:
       DestinationSecurityGroupId: !Ref VpcEndpointSecurityGroup
       Description: ECR API, ECR Docker and CloudWatch Logs over the interface endpoints
 
-  TaskEgressToS3:
+  TaskEgressToS3: # Allow ECS tasks to send HTTPS traffic to S3 destinations through the S3 gateway endpoint.
     Type: AWS::EC2::SecurityGroupEgress
     Properties:
       GroupId: !Ref TaskSecurityGroup
@@ -364,7 +359,7 @@ Resources:
       DestinationSecurityGroupId: !Ref DatabaseSecurityGroup
       Description: PostgreSQL
 
-  EndpointIngressFromTasks:
+  EndpointIngressFromTasks: # This allows ECS tasks to access services through interface endpoints using HTTPS on port 443
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       GroupId: !Ref VpcEndpointSecurityGroup
