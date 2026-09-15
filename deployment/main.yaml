@@ -18,7 +18,7 @@ parameters:
   TaskMemory: '512'
   MinCapacity: 1
   MaxCapacity: 4
-  CpuTargetUtilization: 60
+  CpuTargetUtilization: 55
   ImagePrefix: images/
   # The application workflow publishes one moving tag; CodeDeploy rolls out each
   # new image behind it.
