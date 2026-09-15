@@ -20,11 +20,12 @@ parameters:
   MaxCapacity: 4
   CpuTargetUtilization: 60
   ImagePrefix: images/
-  # Stage one of a rebuild: the registry is empty, so the platform and delivery
-  # stacks stay uncreated until an image exists. Set this to latest once the
-  # application workflow has pushed one.
-  ImageTag: ''
-  # Empty until the platform stack has registered its first revision.
+  # The application workflow publishes one moving tag; CodeDeploy rolls out each
+  # new image behind it.
+  ImageTag: latest
+  # Empty until the platform stack has registered its first revision. Pin it
+  # afterwards so template changes never ask ECS to move a CODE_DEPLOY service
+  # onto a new task definition.
   ServiceTaskDefinitionArn: ''
 tags:
   project: photo-uploader
