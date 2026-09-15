@@ -26,7 +26,7 @@ parameters:
   # Empty until the platform stack has registered its first revision. Pin it
   # afterwards so template changes never ask ECS to move a CODE_DEPLOY service
   # onto a new task definition.
-  ServiceTaskDefinitionArn: ''
+  ServiceTaskDefinitionArn: arn:aws:ecs:us-east-1:842676015206:task-definition/photo-uploader:11
 tags:
   project: photo-uploader
   managed-by: cloudformation-gitsync
