@@ -106,7 +106,10 @@ Parameters:
 
   ServiceTaskDefinitionArn:
     Type: String
-    Description: Existing ECS task definition revision owned by CloudFormation
+    Default: ''
+    Description: >
+      Existing ECS task definition revision the service should keep running.
+      Empty on the first create; set once the platform stack exists.
 
   TaskCpu:
     Type: String

@@ -20,14 +20,12 @@ parameters:
   MaxCapacity: 4
   CpuTargetUtilization: 60
   ImagePrefix: images/
-  # Keep the CloudFormation bootstrap task definition stable; CodeDeploy deploys
-  # each later image produced by the application workflow under latest.
-  ImageTag: 30bfa61
-  # This revision remains owned by the bootstrap stack; do not replace it with
-  # a CodeDeploy-created task definition revision.
-  ServiceTaskDefinitionArn: arn:aws:ecs:us-east-1:842676015206:task-definition/photo-uploader:1
-  # This revision also retriggers GitSync after the execution-role permission
-  # batch was validated with the IAM policy simulator.
+  # Stage one of a rebuild: the registry is empty, so the platform and delivery
+  # stacks stay uncreated until an image exists. Set this to latest once the
+  # application workflow has pushed one.
+  ImageTag: ''
+  # Empty until the platform stack has registered its first revision.
+  ServiceTaskDefinitionArn: ''
 tags:
   project: photo-uploader
   managed-by: cloudformation-gitsync

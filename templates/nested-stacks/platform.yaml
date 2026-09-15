@@ -30,7 +30,12 @@ Parameters:
     Description: ECR repository containing the image used by the service
   ServiceTaskDefinitionArn:
     Type: String
-    Description: ECS task definition revision managed by CloudFormation bootstrap
+    Default: ''
+    Description: >
+      Existing task definition revision the service should keep running. Leave
+      empty on the first create, when the only revision is the one this stack
+      registers. Set it afterwards so later template changes never ask ECS to
+      move a CODE_DEPLOY service onto a new revision.
   ContainerPort:
     Type: Number
     Default: 8080
@@ -91,6 +96,9 @@ Parameters:
   LogRetentionDays:
     Type: Number
     Default: 7
+
+Conditions:
+  HasServiceTaskDefinition: !Not [!Equals [!Ref ServiceTaskDefinitionArn, '']]
 
 Resources:
   LogGroup:
@@ -345,7 +353,7 @@ Resources:
       - TestListener
     Properties:
       Cluster: !Ref Cluster
-      TaskDefinition: !Ref ServiceTaskDefinitionArn
+      TaskDefinition: !If [HasServiceTaskDefinition, !Ref ServiceTaskDefinitionArn, !Ref TaskDefinition]
       LaunchType: FARGATE
       PlatformVersion: LATEST
       DesiredCount: !Ref DesiredCount
